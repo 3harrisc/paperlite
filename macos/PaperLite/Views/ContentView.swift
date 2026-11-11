@@ -54,7 +54,7 @@ struct ContentView: View {
                 .help("Open (⌘O)")
             Button { model.save() } label: { Label("Save", systemImage: "square.and.arrow.down") }
                 .disabled(model.document == nil).help("Save (⌘S)")
-            Button { model.pdfView?.print(nil) } label: { Label("Print", systemImage: "printer") }
+            Button { model.pdfView?.print(with: NSPrintInfo.shared, autoRotate: true) } label: { Label("Print", systemImage: "printer") }
                 .disabled(model.document == nil).help("Print (⌘P)")
             Divider()
             Button { model.undo() } label: { Label("Undo", systemImage: "arrow.uturn.backward") }

@@ -30,7 +30,7 @@ struct PaperLiteApp: App {
                 Button("Combine Files…") { model.compressFiles = model.url.map { [$0] } ?? []; model.showCombine = true }
             }
             CommandGroup(replacing: .printItem) {
-                Button("Print…") { model.pdfView?.print(nil) }.keyboardShortcut("p").disabled(model.document == nil)
+                Button("Print…") { model.pdfView?.print(with: NSPrintInfo.shared, autoRotate: true) }.keyboardShortcut("p").disabled(model.document == nil)
             }
             CommandGroup(replacing: .undoRedo) {
                 Button(model.canUndo ? "Undo \(model.undoLabel)" : "Undo") { model.undo() }
