@@ -593,6 +593,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, e):
         if self._maybe_save():
+            for t in (getattr(self, "_checker", None), getattr(self, "_dl", None)):
+                if t is not None and t.isRunning():
+                    t.wait(3000)
             self.history.close()
             e.accept()
         else:
@@ -980,7 +983,7 @@ class MainWindow(QMainWindow):
     # ================================================================== updates
 
     def check_updates_quietly(self):
-        if not UPDATE_REPO:
+        if not UPDATE_REPO or os.environ.get("PAPERLITE_NO_UPDATE_CHECK"):
             return
         s = QSettings()
         if time.time() - s.value("update/last", 0, type=float) < 24 * 3600:
