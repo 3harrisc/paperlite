@@ -1,43 +1,64 @@
 # PaperLite PDF
 
-A lightweight PDF reader for Windows, similar to Acrobat Reader, focused on the features people use most:
+A clean, fast PDF app for Windows, similar to Acrobat, focused on the features people use most:
 
-- **Compress PDF** – shrinks large scanned PDFs, often by 80–99%. Compress one file or a whole batch, or right-click a PDF in File Explorer and choose **Compress with PaperLite**.
-- **Fill & Sign** – fill in form fields, type text anywhere, add ticks, and place a signature or initials (typed or hand-drawn, saved for next time).
-- **Edit text** – click a line of text and change it. The size, colour and position stay the same.
-- Viewer: page thumbnails, zoom (Ctrl + mouse wheel), rotate pages, delete pages, print, undo/redo, drag-and-drop, password-protected PDFs.
+- **Compress PDF**: shrinks large scanned PDFs, often by 80–99%. Compress one file or a batch, or right-click a PDF in File Explorer and choose **Compress with PaperLite**.
+- **Fill & Sign**: fill in form fields right on the page, type text anywhere, and add ticks, crosses and today's date. Place a signature or initials, typed or hand-drawn and remembered for next time.
+- **Edit PDF**, including scans and handwriting:
+  - **Edit text**: hover over a word and click to change it. On scanned pages the text is read first with built-in OCR, and the new text matches the original's size, position and ink colour on the scan's paper colour. The old pixels are really removed, not just covered.
+  - **Select area**: drag a box around anything (handwriting, stamps, numbers), then **Replace with text**, **Erase**, **Move** or **Copy** it.
+  - **Erase**: drag over anything to remove it.
+- **Organise pages**: drag to reorder, rotate, delete, insert pages from another file or a blank page, extract pages to a new PDF, export pages as PNG/JPG, and split into several files.
+- **Combine files**: join PDFs and images into one PDF.
+- Undo/redo for everything, page thumbnails, zoom, print, drag-and-drop, recent files and password-protected PDFs.
+- **Automatic updates**: the app tells you when a new version is out and installs it in one click.
 
-## Getting the installer
+## Making the .exe installer
 
-The Windows installer (`PaperLite-PDF-Setup-x.y.z.exe`) is built automatically by GitHub Actions on a Windows machine:
+### Option A: on your Windows PC (simplest)
 
-1. Push this repo to GitHub.
-2. Open the **Actions** tab, pick **Build Windows installer**, and click **Run workflow** (it also runs on every push to `main`).
-3. When it finishes, download the **PaperLite-PDF-Setup** artifact from the run page.
+1. Install **Python 3.13** from <https://www.python.org/downloads/>. Tick "Add python.exe to PATH" during setup.
+2. Install **Inno Setup 6** from <https://jrsoftware.org/isdl.php>.
+3. Double-click **`build.bat`** in this folder.
 
-To publish a release, push a tag such as `v0.1.0`. The installer is then attached to a GitHub Release.
+It takes a few minutes the first time. When it's done, a window opens at `installer\Output\PaperLite-PDF-Setup-<version>.exe`. That file is the installer you double-click or send to people.
 
-The installer doesn't need admin rights. It adds Start-menu and desktop shortcuts, the right-click **Compress with PaperLite** entry, and an **Open with** option for PDFs. It does not take over the default PDF app; you can make PaperLite your default in Windows Settings.
+### Option B: automatically on GitHub
 
-> Windows SmartScreen will warn about an unsigned installer ("Windows protected your PC" → *More info* → *Run anyway*). Signing the installer with a code-signing certificate removes this warning.
+Push this repo to GitHub. Every push to `main` runs the tests and builds the installer on a Windows machine; download it from the run's **Artifacts** section in the **Actions** tab. You can also start a build by hand with **Run workflow**.
 
-## Building on a Windows PC by hand
+The installer doesn't need admin rights. It adds Start-menu and desktop shortcuts, the right-click **Compress with PaperLite** entry, and **Open with** for PDFs.
 
-```bat
-py -3.13 -m venv .venv
-.venv\Scripts\pip install -r requirements-dev.txt
-.venv\Scripts\python run.py
-```
+> Windows SmartScreen warns about unsigned installers ("Windows protected your PC" → *More info* → *Run anyway*). A code-signing certificate removes this warning; see "Code signing" below.
 
-```bat
-.venv\Scripts\pyinstaller --noconfirm paperlite.spec
-```
+## Releasing an update
 
-```bat
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\paperlite.iss
-```
+Installed copies check GitHub once a day. When a newer release exists, a blue bar appears: **"PaperLite 0.3.0 is available → Install update"**. One click downloads the new installer, closes the app, upgrades it in place (settings, signatures and recent files are kept) and reopens it.
 
-The installer ends up in `installer\Output\`.
+One-time setup:
+
+1. Put the repo on GitHub. It must be **public** for the update check to work without a login. With a private repo you can publish releases to a separate public repo.
+2. In `paperlite/__init__.py`, set `UPDATE_REPO = "your-github-name/paperlite"`.
+
+To ship a new version:
+
+1. Change `__version__` in `paperlite/__init__.py`, e.g. `"0.3.0"`.
+2. Commit and push.
+3. Tag it and push the tag (run this in Git Bash or a terminal):
+
+   ```bash
+   git tag v0.3.0
+   ```
+
+   ```bash
+   git push origin v0.3.0
+   ```
+
+GitHub Actions builds the installer and publishes a **Release** with it attached. Within a day, every installed copy offers the update. People can also use **Menu → Check for updates…** at any time. The build fails if the tag and `__version__` don't match, so you can't publish a mislabelled version.
+
+## Code signing (optional, recommended before sharing widely)
+
+Buy a code-signing certificate (for example from Certum, Sectigo or SSL.com, or use Azure Trusted Signing), then add a signing step after the Inno Setup step in `.github/workflows/build-windows.yml`. This removes the SmartScreen warning and builds trust with people who download it.
 
 ## Command-line compression
 
@@ -69,12 +90,21 @@ These numbers are defined in `paperlite/core/compress.py`, which is the source o
 ## Project layout
 
 ```
-paperlite/core/     PDF logic, no UI (compress, forms/sign, text edit)
-paperlite/ui/       Qt desktop interface
-tests/              pytest tests (core + headless GUI)
-paperlite.spec      PyInstaller build
-installer/          Inno Setup installer script
-.github/workflows/  Windows build pipeline
+paperlite/core/       PDF logic, no UI (easy to port)
+  compress.py         compression presets and engine
+  forms.py            form filling, text, ticks, signatures
+  textedit.py         editing real text
+  scanedit.py         OCR, editing scans and handwriting, erase/move/copy
+  pages.py            reorder, rotate, insert, combine, extract, split, export images
+  history.py          undo/redo
+  updater.py          update checks via GitHub Releases
+paperlite/ui/         Qt desktop interface (theme.py holds every colour and style)
+assets/               app icon, Lucide icons (ISC), Tesseract English OCR model (Apache-2.0)
+tests/                pytest tests (core + headless GUI)
+build.bat             one-click Windows build
+paperlite.spec        PyInstaller build
+installer/            Inno Setup installer script
+.github/workflows/    Windows build + release pipeline
 ```
 
 Run the tests with `python -m pytest`. On Linux CI, set `QT_QPA_PLATFORM=offscreen`.
@@ -91,6 +121,10 @@ The `core/` modules are small and map directly onto Apple frameworks:
 | Add text / tick | `insert_text`, line drawing | `PDFAnnotation` `.freeText` / `.ink`, or draw into the page |
 | Signature | PNG stamped with `insert_image` | Custom `PDFAnnotation` subclass that draws the signature image (`draw(with:in:)`) |
 | Edit text | redact the span, then `insert_text` | PDFKit has no built-in text editing. Cover the old text with a white box and draw new text, or use a library such as PSPDFKit/Nutrient. |
+| OCR on scans | Tesseract inside PyMuPDF | **Vision** framework (`VNRecognizeTextRequest`). It's built into macOS, and its `.accurate` level also reads a lot of handwriting. |
+| Erase/replace on scans | redaction with image pixels removed, then the sampled paper colour | Draw into the page image with Core Graphics, or add a filled annotation and flatten it |
+| Page organising | `pages.py` | `PDFDocument` `exchangePage`, `removePage`, `insert(_:at:)` |
+| Updates | GitHub Releases + Inno Setup | **Sparkle** framework (the standard auto-updater for Mac apps) |
 
 ## Licensing
 

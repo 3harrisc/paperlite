@@ -51,6 +51,16 @@ def add_checkmark(page: pymupdf.Page, point: pymupdf.Point, size: float = 12) ->
     shape.commit()
 
 
+def add_cross(page: pymupdf.Page, point: pymupdf.Point, size: float = 11) -> None:
+    """Draw an ✗ centred on ``point``."""
+    x, y, s = point.x, point.y, size / 2
+    shape = page.new_shape()
+    shape.draw_line((x - s, y - s), (x + s, y + s))
+    shape.draw_line((x - s, y + s), (x + s, y - s))
+    shape.finish(color=(0, 0, 0), width=max(1.2, size / 8), lineCap=1)
+    shape.commit()
+
+
 def add_signature(page: pymupdf.Page, rect: pymupdf.Rect, png_bytes: bytes) -> None:
     """Stamp a signature image (transparent PNG) into ``rect``, keeping its proportions.
 

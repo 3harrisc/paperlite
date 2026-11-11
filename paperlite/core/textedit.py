@@ -29,19 +29,34 @@ def _srgb(c: int) -> tuple[float, float, float]:
     return ((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255
 
 
-def span_at(page: pymupdf.Page, point: pymupdf.Point) -> TextSpan | None:
-    """Return the text span under ``point`` (PDF coordinates), or None."""
+def all_spans(page: pymupdf.Page) -> list[TextSpan]:
+    """Every non-blank run of text on the page (unrotated page coordinates)."""
+    out = []
     data = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)
     for block in data["blocks"]:
         for line in block.get("lines", []):
             for s in line["spans"]:
-                r = pymupdf.Rect(s["bbox"])
-                if r.contains(point) and s["text"].strip():
-                    return TextSpan(s["text"], r, pymupdf.Point(s["origin"]), s["size"], _srgb(s["color"]), s["font"], s["flags"])
+                if s["text"].strip():
+                    out.append(TextSpan(s["text"], pymupdf.Rect(s["bbox"]), pymupdf.Point(s["origin"]), s["size"],
+                                        _srgb(s["color"]), s["font"], s["flags"]))
+    return out
+
+
+def span_at(page: pymupdf.Page, point: pymupdf.Point, spans: list[TextSpan] | None = None) -> TextSpan | None:
+    """Return the text span under ``point`` (unrotated page coordinates), or None."""
+    for s in spans if spans is not None else all_spans(page):
+        if s.rect.contains(point):
+            return s
     return None
 
 
-def _base14_for(span: TextSpan) -> str:
+def screen_family(span: TextSpan) -> str:
+    """A system font that looks like the span's font, for the on-screen editor."""
+    f = base14_for(span)
+    return {"t": "Times New Roman", "c": "Courier New"}.get(f[0], "Arial")
+
+
+def base14_for(span: TextSpan) -> str:
     name = span.font.lower()
     bold = bool(span.flags & 16) or "bold" in name
     italic = bool(span.flags & 2) or "italic" in name or "oblique" in name
@@ -59,9 +74,9 @@ def _base14_for(span: TextSpan) -> str:
     return {"": "tiro", "bo": "tibo", "it": "tiit", "bi": "tibi"}[suffix]
 
 
-def replace_span(page: pymupdf.Page, span: TextSpan, new_text: str) -> None:
+def replace_span(page: pymupdf.Page, span: TextSpan, new_text: str, fontname: str | None = None) -> None:
     """Replace ``span`` with ``new_text``, keeping position, size and colour."""
     page.add_redact_annot(span.rect, fill=False)
     page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE, graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
     if new_text:
-        page.insert_text(span.origin, new_text, fontsize=span.size, fontname=_base14_for(span), color=span.color)
+        page.insert_text(span.origin, new_text, fontsize=span.size, fontname=fontname or base14_for(span), color=span.color)

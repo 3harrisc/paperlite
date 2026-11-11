@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QSettings, Qt, QThread, Signal
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QSettings, QSize, Qt, QThread, Signal
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QProgressBar,
     QPushButton,
     QRadioButton,
@@ -25,7 +26,36 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from paperlite.core import compress
+from paperlite.core import compress, pages
+from paperlite.ui import theme
+
+
+def _section(text: str) -> QLabel:
+    lb = QLabel(text)
+    lb.setObjectName("SectionLabel")
+    return lb
+
+
+def dialog_header(icon_name: str, title: str, subtitle: str, tint: str) -> QHBoxLayout:
+    row = QHBoxLayout()
+    row.setSpacing(12)
+    badge = QLabel()
+    badge.setFixedSize(40, 40)
+    badge.setAlignment(Qt.AlignCenter)
+    badge.setStyleSheet(f"background:{tint};border-radius:10px;")
+    badge.setPixmap(theme.pixmap(icon_name, "#FFFFFF", 22))
+    row.addWidget(badge, alignment=Qt.AlignTop)
+    col = QVBoxLayout()
+    col.setSpacing(2)
+    t = QLabel(title)
+    t.setObjectName("PanelTitle")
+    sub = QLabel(subtitle)
+    sub.setObjectName("PanelHint")
+    sub.setWordWrap(True)
+    col.addWidget(t)
+    col.addWidget(sub)
+    row.addLayout(col, 1)
+    return row
 
 
 # --------------------------------------------------------------------------- compress
@@ -68,12 +98,17 @@ class CompressDialog(QDialog):
         settings = QSettings()
 
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel("<b>Files</b>"))
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.setSpacing(8)
+        lay.addLayout(dialog_header("minimize-2", "Compress PDF", "Make files smaller. Scanned documents usually shrink the most.", theme.BRAND))
+        lay.addSpacing(6)
+        lay.addWidget(_section("FILES"))
         self.file_list = QListWidget()
-        self.file_list.setMaximumHeight(110)
+        self.file_list.setMaximumHeight(96)
         lay.addWidget(self.file_list)
         row = QHBoxLayout()
         add_btn = QPushButton("Add files…")
+        add_btn.setIcon(theme.icon("file-plus", theme.TEXT, size=16))
         add_btn.clicked.connect(self._add_files)
         clear_btn = QPushButton("Clear")
         clear_btn.clicked.connect(self.file_list.clear)
@@ -82,17 +117,20 @@ class CompressDialog(QDialog):
         row.addStretch()
         lay.addLayout(row)
 
-        lay.addWidget(QLabel("<b>Compression level</b>"))
+        lay.addSpacing(6)
+        lay.addWidget(_section("COMPRESSION LEVEL"))
         self.group = QButtonGroup(self)
         current = settings.value("compress/preset", compress.DEFAULT_PRESET)
         for p in compress.PRESETS.values():
-            rb = QRadioButton(p.label)
+            rb = QRadioButton(p.label.replace("&", "&&"))
             rb.setProperty("preset", p.key)
             rb.setChecked(p.key == current)
+            rb.setStyleSheet("font-weight:600")
             self.group.addButton(rb)
             lay.addWidget(rb)
-            hint = QLabel(f"<span style='color:gray'>{p.description}</span>")
-            hint.setContentsMargins(24, 0, 0, 4)
+            hint = QLabel(p.description)
+            hint.setObjectName("PanelHint")
+            hint.setContentsMargins(26, 0, 0, 6)
             lay.addWidget(hint)
 
         self.overwrite = QCheckBox("Replace the original files (otherwise saves as “name_compressed.pdf”)")
@@ -109,25 +147,32 @@ class CompressDialog(QDialog):
 
         self.buttons = QDialogButtonBox()
         self.go_btn = self.buttons.addButton("Compress", QDialogButtonBox.AcceptRole)
+        self.go_btn.setProperty("kind", "primary")
         self.close_btn = self.buttons.addButton(QDialogButtonBox.Close)
         self.go_btn.clicked.connect(self._start)
         self.close_btn.clicked.connect(self.reject)
         lay.addWidget(self.buttons)
 
         for f in files or []:
-            self.file_list.addItem(f)
+            self._add_path(f)
+
+    def _add_path(self, path: str):
+        it = QListWidgetItem(theme.icon("file-text", theme.TEXT_MUTED, size=16), os.path.basename(path))
+        it.setData(Qt.UserRole, path)
+        it.setToolTip(path)
+        self.file_list.addItem(it)
 
     def _add_files(self):
         start = QSettings().value("lastDir", "")
         paths, _ = QFileDialog.getOpenFileNames(self, "Choose PDFs to compress", start, "PDF files (*.pdf)")
         for p in paths:
-            self.file_list.addItem(p)
+            self._add_path(p)
 
     def selected_preset(self) -> str:
         return self.group.checkedButton().property("preset")
 
     def _start(self):
-        files = [self.file_list.item(i).text() for i in range(self.file_list.count())]
+        files = [self.file_list.item(i).data(Qt.UserRole) for i in range(self.file_list.count())]
         if not files:
             self.status.setText("Add at least one PDF first.")
             return
@@ -291,6 +336,11 @@ class SignatureDialog(QDialog):
         self.setWindowTitle("Create signature" if kind == "signature" else "Create initials")
         self.png: bytes | None = None
         lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.setSpacing(12)
+        lay.addLayout(dialog_header("signature", self.windowTitle(),
+                                    "Type it or draw it with your mouse, pen or finger. It's saved on this computer for next time.",
+                                    "#7C3AED"))
         self.tabs = QTabWidget()
         self.pad = SignaturePad()
         draw_tab = QWidget()
@@ -303,10 +353,11 @@ class SignatureDialog(QDialog):
         tl = QVBoxLayout(type_tab)
         self.typed = QLineEdit()
         self.typed.setPlaceholderText("Type your name")
+        self.typed.setMinimumHeight(34)
         self.preview = QLabel()
         self.preview.setMinimumHeight(90)
         self.preview.setAlignment(Qt.AlignCenter)
-        self.preview.setStyleSheet("background:white;border:1px solid #ddd")
+        self.preview.setStyleSheet(f"background:white;border:1px solid {theme.BORDER};border-radius:8px;")
         self.typed.textChanged.connect(self._update_preview)
         tl.addWidget(self.typed)
         tl.addWidget(self.preview)
@@ -314,6 +365,8 @@ class SignatureDialog(QDialog):
         self.tabs.addTab(draw_tab, "Draw")
         lay.addWidget(self.tabs)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.button(QDialogButtonBox.Ok).setText("Use this")
+        bb.button(QDialogButtonBox.Ok).setProperty("kind", "primary")
         bb.accepted.connect(self._ok)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
@@ -372,3 +425,180 @@ class TextEntryDialog(QDialog):
 
     def value(self) -> tuple[str, float | None]:
         return self.edit.text(), (self.size.value() if self.size else None)
+
+
+# --------------------------------------------------------------------------- combine
+
+
+class CombineDialog(QDialog):
+    """Pick files, put them in order, join them into one PDF."""
+
+    def __init__(self, parent=None, files: list[str] | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Combine files")
+        self.setMinimumSize(560, 460)
+        self.output: str | None = None
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.setSpacing(10)
+        lay.addLayout(dialog_header("combine", "Combine files", "Join PDFs and images into one PDF. Drag to change the order.", "#D97706"))
+        self.list = QListWidget()
+        self.list.setDragDropMode(QListWidget.InternalMove)
+        self.list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.list.setIconSize(QSize(18, 18))
+        lay.addWidget(self.list, 1)
+        row = QHBoxLayout()
+        add = QPushButton("Add files…")
+        add.setIcon(theme.icon("file-plus", theme.TEXT, size=16))
+        add.clicked.connect(self._add)
+        rem = QPushButton("Remove")
+        rem.setIcon(theme.icon("trash-2", theme.TEXT, size=16))
+        rem.clicked.connect(lambda: [self.list.takeItem(self.list.row(i)) for i in self.list.selectedItems()])
+        row.addWidget(add)
+        row.addWidget(rem)
+        row.addStretch()
+        self.info = QLabel()
+        self.info.setObjectName("PanelHint")
+        row.addWidget(self.info)
+        lay.addLayout(row)
+        bb = QDialogButtonBox(QDialogButtonBox.Cancel)
+        self.go = bb.addButton("Combine", QDialogButtonBox.AcceptRole)
+        self.go.setProperty("kind", "primary")
+        self.go.clicked.connect(self._combine)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+        self.list.model().rowsInserted.connect(self._update)
+        self.list.model().rowsRemoved.connect(self._update)
+        for f in files or []:
+            self.add_path(f)
+        self._update()
+
+    def add_path(self, path: str):
+        it = QListWidgetItem(theme.icon("file-text", theme.TEXT_MUTED, size=18), os.path.basename(path))
+        it.setData(Qt.UserRole, path)
+        it.setToolTip(path)
+        self.list.addItem(it)
+
+    def paths(self) -> list[str]:
+        return [self.list.item(i).data(Qt.UserRole) for i in range(self.list.count())]
+
+    def _update(self, *_):
+        n = self.list.count()
+        self.info.setText(f"{n} file{'s' if n != 1 else ''}")
+        self.go.setEnabled(n >= 2)
+
+    def _add(self):
+        paths, _ = QFileDialog.getOpenFileNames(self, "Add files", QSettings().value("lastDir", ""),
+                                                "PDFs and images (*.pdf *.png *.jpg *.jpeg *.tif *.tiff *.bmp)")
+        for p in paths:
+            self.add_path(p)
+
+    def _combine(self):
+        files = self.paths()
+        first = files[0]
+        suggested = os.path.join(os.path.dirname(first), "Combined.pdf")
+        out, _ = QFileDialog.getSaveFileName(self, "Save combined PDF", suggested, "PDF files (*.pdf)")
+        if not out:
+            return
+        try:
+            pages.combine(files, out)
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(self, "Combine files", f"Couldn't combine the files:\n{e}")
+            return
+        self.output = out
+        self.accept()
+
+
+# --------------------------------------------------------------------------- page ranges
+
+
+class PagesDialog(QDialog):
+    """Choose pages (and options) for Extract, Export images or Split."""
+
+    def __init__(self, parent, mode: str, page_count: int, selected: list[int]):
+        super().__init__(parent)
+        self.mode, self.page_count = mode, page_count
+        titles = {
+            "extract": ("file-output", "Extract pages", "Save the chosen pages as a new PDF. The original isn't changed."),
+            "export_images": ("image-down", "Export as images", "Save pages as picture files."),
+            "split": ("scissors", "Split PDF", "Break this PDF into several smaller files."),
+        }
+        ic, title, sub = titles[mode]
+        self.setWindowTitle(title)
+        self.setMinimumWidth(440)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(22, 20, 22, 18)
+        lay.setSpacing(8)
+        lay.addLayout(dialog_header(ic, title, sub, "#0E9F6E"))
+        lay.addSpacing(8)
+        self.range = QLineEdit()
+        self.every = QSpinBox()
+        self.fmt = None
+        self.dpi = None
+        if mode == "split":
+            lay.addWidget(_section("PAGES PER FILE"))
+            self.every.setRange(1, max(1, page_count))
+            self.every.setValue(1)
+            lay.addWidget(self.every)
+        else:
+            lay.addWidget(_section("PAGES"))
+            default = _ranges_text(selected) if selected else f"1-{page_count}"
+            self.range.setText(default)
+            self.range.setPlaceholderText("e.g. 1-3, 5, 8-")
+            lay.addWidget(self.range)
+            hint = QLabel(f"This PDF has {page_count} pages. Use commas and dashes, e.g. 1-3, 5.")
+            hint.setObjectName("PanelHint")
+            lay.addWidget(hint)
+        if mode == "export_images":
+            from PySide6.QtWidgets import QComboBox
+
+            lay.addSpacing(6)
+            lay.addWidget(_section("FORMAT"))
+            row = QHBoxLayout()
+            self.fmt = QComboBox()
+            self.fmt.addItem("PNG (sharp, larger)", "png")
+            self.fmt.addItem("JPG (photos, smaller)", "jpg")
+            self.dpi = QComboBox()
+            for d, t in ((96, "Screen – 96 DPI"), (150, "Standard – 150 DPI"), (300, "Print – 300 DPI")):
+                self.dpi.addItem(t, d)
+            self.dpi.setCurrentIndex(1)
+            row.addWidget(self.fmt)
+            row.addWidget(self.dpi)
+            lay.addLayout(row)
+        self.error = QLabel()
+        self.error.setStyleSheet(f"color:{theme.BRAND}")
+        lay.addWidget(self.error)
+        bb = QDialogButtonBox(QDialogButtonBox.Cancel)
+        ok = bb.addButton({"extract": "Extract", "export_images": "Export", "split": "Split"}[mode], QDialogButtonBox.AcceptRole)
+        ok.setProperty("kind", "primary")
+        ok.clicked.connect(self._ok)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+
+    def indexes(self) -> list[int]:
+        return pages.parse_ranges(self.range.text(), self.page_count)
+
+    def _ok(self):
+        if self.mode != "split":
+            try:
+                self.indexes()
+            except ValueError as e:
+                self.error.setText(str(e))
+                return
+        self.accept()
+
+
+def _ranges_text(idx: list[int]) -> str:
+    idx = sorted(set(idx))
+    parts, start, prev = [], None, None
+    for i in idx + [None]:
+        if start is None:
+            start = prev = i
+        elif i is not None and i == prev + 1:
+            prev = i
+        else:
+            parts.append(f"{start + 1}" if start == prev else f"{start + 1}-{prev + 1}")
+            start = prev = i
+    return ", ".join(parts)

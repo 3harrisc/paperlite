@@ -53,10 +53,14 @@ def main() -> int:
 
     from paperlite.ui.main_window import APP_NAME, MainWindow
 
+    from paperlite.ui import theme
+
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("PaperLite")
     app.setStyle("Fusion")
+    app.setFont(theme.app_font())
+    app.setStyleSheet(theme.stylesheet())
     app.setWindowIcon(QIcon(resource_path("assets/icon.png")))
     files = [a for a in argv if a.lower().endswith(".pdf")]
     if "--compress-dialog" in argv:

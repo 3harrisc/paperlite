@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write  # needed to publish releases
+
 jobs:
   build:
     runs-on: windows-latest
@@ -39,8 +42,11 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "v=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
-          else echo "v=$(python -c 'import paperlite; print(paperlite.__version__)')" >> "$GITHUB_OUTPUT"; fi
+          v=$(python -c 'import paperlite; print(paperlite.__version__)')
+          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$v" ]]; then
+            echo "::error::Tag ${GITHUB_REF#refs/tags/} doesn't match __version__ $v in paperlite/__init__.py"; exit 1
+          fi
+          echo "v=$v" >> "$GITHUB_OUTPUT"
 
       - name: Build installer with Inno Setup
         shell: pwsh
@@ -61,3 +67,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: installer/Output/*.exe
+          generate_release_notes: true
