@@ -1,0 +1,63 @@
+name: Build Windows installer
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+      - name: Build app with PyInstaller
+        run: pyinstaller --noconfirm paperlite.spec
+
+      - name: Smoke-test the built exe
+        shell: bash
+        run: |
+          python -c "import sys; sys.path.insert(0, 'tests'); from test_core import make_scanned_pdf; make_scanned_pdf('smoke.pdf', pages=1)"
+          dist/PaperLite/PaperLite.exe --compress smoke.pdf
+          test -f smoke_compressed.pdf
+
+      - name: Work out version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "v=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else echo "v=$(python -c 'import paperlite; print(paperlite.__version__)')" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Build installer with Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc /DAppVersion=${{ steps.ver.outputs.v }} installer\paperlite.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PaperLite-PDF-Setup
+          path: installer/Output/*.exe
+
+      - name: Attach installer to GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/*.exe
