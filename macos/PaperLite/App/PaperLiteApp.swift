@@ -76,17 +76,44 @@ private struct AppCommands: Commands {
 }
 
 /// Handles files opened from Finder ("Open With", double-click, several at once),
-/// the Finder "Compress with PaperLite" action, and quitting with unsaved changes.
+/// the Finder "Compress with PaperLite" Quick Action, and quitting with unsaved changes.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.servicesProvider = FinderService()
-        NSUpdateDynamicServices()
+    /// Set by `paperlite://compress-next`; the next files to arrive go to Compress instead of tabs.
+    private var compressNextUntil: Date?
+
+    /// The Quick Action (macos/QuickAction) opens `paperlite://compress-next` and then the
+    /// selected PDFs. Opening them that way, rather than passing paths in the URL, is what
+    /// gives the sandboxed app permission to read and replace them.
+    /// Take the paperlite:// link event ourselves. Left to SwiftUI, every link
+    /// would also open an empty window.
+    /// Installed before launch finishes, so a link that launched the app isn't missed,
+    /// and again after, in case SwiftUI installed its own in between.
+    func applicationWillFinishLaunching(_ notification: Notification) { takeLinkEvents() }
+    func applicationDidFinishLaunching(_ notification: Notification) { takeLinkEvents() }
+
+    private func takeLinkEvents() {
+        NSAppleEventManager.shared().setEventHandler(
+            self, andSelector: #selector(handleLink(_:reply:)),
+            forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+    }
+
+    @objc private func handleLink(_ event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
+        guard let text = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
+              let url = URL(string: text), url.scheme == "paperlite" else { return }
+        if url.host == "compress-next" { compressNextUntil = Date().addingTimeInterval(10) }
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
+        let files = urls.filter(\.isFileURL)
+        guard !files.isEmpty else { return }
         let router = WindowRouter.shared
-        router.open(urls, from: router.frontModel)
+        if let until = compressNextUntil, until > Date() {
+            compressNextUntil = nil
+            router.compress(files)
+        } else {
+            router.open(files, from: router.frontModel)
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -94,14 +121,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-}
-
-/// Finder → right-click → Quick Actions → "Compress with PaperLite" (NSServices in Info.plist).
-final class FinderService: NSObject {
-    @objc func compressFiles(_ pasteboard: NSPasteboard, userData: String?,
-                             error: AutoreleasingUnsafeMutablePointer<NSString?>) {
-        let urls = pasteboard.readObjects(forClasses: [NSURL.self],
-                                          options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        MainActor.assumeIsolated { WindowRouter.shared.compress(urls) }
-    }
 }

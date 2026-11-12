@@ -107,6 +107,10 @@ final class DocumentModel: ObservableObject {
     @Published var signatureSheet: SignatureKind?
     @Published var pagesSheet: PagesAction?
 
+    var hasSheet: Bool {
+        showCompress || showCombine || signatureSheet != nil || pagesSheet != nil
+    }
+
     weak var pdfView: PaperPDFView?
     /// This document's window (tab), and the hook that asks before closing it with unsaved changes.
     weak var window: NSWindow?
