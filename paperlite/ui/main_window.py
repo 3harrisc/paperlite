@@ -33,6 +33,7 @@ from paperlite import UPDATE_REPO, __version__
 from paperlite.core import compress, forms, pages, scanedit, textedit, updater
 from paperlite.core.history import History
 from paperlite.ui import theme
+from paperlite.ui.convert_dialog import ConvertDialog
 from paperlite.ui.dialogs import CombineDialog, CompressDialog, PagesDialog, SignatureDialog, saved_signature
 from paperlite.ui.panels import EditPanel, FillSignPanel, OrganiseView, ThumbsPanel, WelcomePage, thumb_card
 from paperlite.ui.viewer import PageView
@@ -242,9 +243,12 @@ class MainWindow(QMainWindow):
         lay.addSpacing(6)
         self.rail_compress = RailButton("minimize-2", "Compress", "Make PDFs smaller")
         self.rail_compress.setCheckable(False)
+        self.rail_convert = RailButton("arrow-right-left", "Convert", "Turn a PDF into a Word or Excel file")
+        self.rail_convert.setCheckable(False)
         self.rail_combine = RailButton("combine", "Combine", "Join files into one PDF")
         self.rail_combine.setCheckable(False)
         lay.addWidget(self.rail_compress, alignment=Qt.AlignHCenter)
+        lay.addWidget(self.rail_convert, alignment=Qt.AlignHCenter)
         lay.addWidget(self.rail_combine, alignment=Qt.AlignHCenter)
         lay.addStretch()
         return rail
@@ -260,6 +264,8 @@ class MainWindow(QMainWindow):
         self.m_print = m.addAction(theme.icon("printer", size=16), "Print…", self.print_doc)
         m.addSeparator()
         m.addAction(theme.icon("minimize-2", size=16), "Compress files…", lambda: CompressDialog(self).exec())
+        m.addAction(theme.icon("arrow-right-left", size=16), "Convert to Word…", lambda: self.convert_current("word"))
+        m.addAction("Convert to Excel…", lambda: self.convert_current("excel"))
         m.addAction(theme.icon("combine", size=16), "Combine files…", self.combine_files)
         m.addSeparator()
         m.addAction(theme.icon("download", size=16), "Check for updates…", self.check_updates_manually)
@@ -275,6 +281,7 @@ class MainWindow(QMainWindow):
         self.b_redo.clicked.connect(self.redo)
         self.b_compress.clicked.connect(self.compress_current)
         self.rail_compress.clicked.connect(self.compress_current)
+        self.rail_convert.clicked.connect(lambda: self.convert_current())
         self.rail_combine.clicked.connect(self.combine_files)
         for key, b in self.rail.items():
             b.clicked.connect(lambda _=False, k=key: self._set_section(k))
@@ -971,6 +978,21 @@ class MainWindow(QMainWindow):
             box.button(QMessageBox.Open).setProperty("kind", "primary")
             if box.exec() == QMessageBox.Open:
                 self.open_file(r.output_path)
+
+    def convert_current(self, kind: str | None = None):
+        """Convert the open PDF (as saved on disk) to Word or Excel; ask for one if none is open."""
+        path = self.path
+        if not self.doc:
+            path, _ = QFileDialog.getOpenFileName(self, "Choose a PDF to convert", QSettings().value("lastDir", ""),
+                                                  "PDF files (*.pdf)")
+            if not path:
+                return
+        elif self.dirty:
+            r = QMessageBox.question(self, APP_NAME, "Save your changes before converting?",
+                                     QMessageBox.Save | QMessageBox.Cancel)
+            if r != QMessageBox.Save or not self.save():
+                return
+        ConvertDialog(self, path, kind).exec()
 
     def combine_files(self, files=None):
         start = files if isinstance(files, list) else ([self.path] if self.path else [])
