@@ -96,19 +96,22 @@ enum Compressor {
         }
 
         let best = candidates.min { fileSize($0) < fileSize($1) }
-        let fm = FileManager.default
         if let best, fileSize(best) < original {
-            if fm.fileExists(atPath: output.path) { try fm.removeItem(at: output) }
-            try fm.copyItem(at: best, to: output)
+            try place(best, at: output)
             return CompressionResult(input: input, output: output, originalBytes: original,
                                      compressedBytes: fileSize(output), keptOriginal: false)
         }
         if input.standardizedFileURL != output.standardizedFileURL {
-            if fm.fileExists(atPath: output.path) { try fm.removeItem(at: output) }
-            try fm.copyItem(at: input, to: output)
+            try place(input, at: output)
         }
         return CompressionResult(input: input, output: output, originalBytes: original,
                                  compressedBytes: original, keptOriginal: true)
+    }
+
+    /// Overwrite in place rather than delete-and-copy: the sandbox lets us write
+    /// to a picked file, but deleting it and creating a new one is refused.
+    private static func place(_ source: URL, at output: URL) throws {
+        try Data(contentsOf: source).write(to: output)
     }
 
     /// Render a page to a JPEG at the preset DPI and wrap it in a new single-page PDF page.

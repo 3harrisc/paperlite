@@ -41,7 +41,9 @@ struct CompressSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State var files: [URL]
     @AppStorage("compressPreset") private var presetID = CompressionPreset.standard.id
-    @AppStorage("compressReplace") private var replace = false
+    // Replacing is the default, like Acrobat's "Reduce File Size". New key so an
+    // old "off" saved by earlier builds doesn't carry over.
+    @AppStorage("compressReplaceOriginal") private var replace = true
     @State private var running = false
     @State private var progress = 0
     @State private var lines: [String] = []
@@ -72,7 +74,7 @@ struct CompressSheet: View {
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
-            Toggle("Replace the original files (otherwise saves as “name_compressed.pdf”)", isOn: $replace)
+            Toggle("Replace the original files (untick to save as “name_compressed.pdf”)", isOn: $replace)
             if running || !lines.isEmpty {
                 if running { ProgressView(value: Double(progress), total: Double(max(files.count, 1))) }
                 VStack(alignment: .leading, spacing: 4) {
@@ -96,16 +98,36 @@ struct CompressSheet: View {
 
     private func start() {
         let preset = CompressionPreset.all.first { $0.id == presetID } ?? .standard
-        let jobs = files.map { url -> (URL, URL) in
-            if replace { return (url, url) }
-            let name = url.deletingPathExtension().lastPathComponent + "_compressed.pdf"
-            return (url, url.deletingLastPathComponent().appendingPathComponent(name))
+        // The compressor reads the file on disk, and the open document is reloaded
+        // afterwards, so unsaved edits to it would be lost. Save them first.
+        if replace, model.isDirty, let current = model.url, files.contains(current) {
+            guard model.save() else { return }
         }
+        var jobs: [(URL, URL)] = []
+        var declined: [String] = []
+        // Folders we were granted for this batch, keyed by the source folder's path.
+        var granted: [String: URL] = [:]
+        for url in files {
+            if replace { jobs.append((url, url)); continue }
+            let folder = url.deletingLastPathComponent()
+            let key = folder.standardizedFileURL.path
+            if granted[key] == nil, let allowed = FolderAccess.writableFolder(for: folder) {
+                granted[key] = allowed
+            }
+            guard let target = granted[key] else {
+                declined.append("✗ \(url.lastPathComponent): no permission to save in “\(folder.lastPathComponent)”")
+                continue
+            }
+            let name = url.deletingPathExtension().lastPathComponent + "_compressed.pdf"
+            jobs.append((url, target.appendingPathComponent(name)))
+        }
+        let folders = Array(granted.values)
         running = true
-        progress = 0
-        lines = []
+        progress = declined.count
+        lines = declined
         results = []
         Task.detached(priority: .userInitiated) {
+            defer { folders.forEach { $0.stopAccessingSecurityScopedResource() } }
             for (input, output) in jobs {
                 let line: String
                 let result: CompressionResult?

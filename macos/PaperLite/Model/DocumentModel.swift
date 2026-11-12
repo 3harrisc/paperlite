@@ -227,15 +227,18 @@ final class DocumentModel: ObservableObject {
 
     private func write(to dest: URL) -> Bool {
         guard let doc = document, let flat = Flattener.flattenedCopy(of: doc) else { return false }
-        let tmp = dest.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).pdf")
+        // Render to the app's own temp folder, then write over `dest` in place.
+        // The sandbox only grants the picked file, not its folder, so a temp file
+        // beside it (or replaceItemAt, which makes one) is refused.
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: tmp) }
         guard flat.write(to: tmp) else {
             alert("Couldn't save", "Try Save As… to a different folder.")
             return false
         }
         do {
-            _ = try FileManager.default.replaceItemAt(dest, withItemAt: tmp)
+            try Data(contentsOf: tmp).write(to: dest)
         } catch {
-            try? FileManager.default.removeItem(at: tmp)
             alert("Couldn't save", error.localizedDescription)
             return false
         }
