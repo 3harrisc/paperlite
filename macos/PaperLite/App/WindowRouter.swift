@@ -102,6 +102,7 @@ final class WindowRouter {
 /// before a tab with unsaved changes is closed.
 struct WindowAccessor: NSViewRepresentable {
     let model: DocumentModel
+    private static let tabbingID = "PaperLiteDocument"
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -116,11 +117,21 @@ struct WindowAccessor: NSViewRepresentable {
     private func attach(_ window: NSWindow?) {
         guard let window, model.window !== window else { return }
         model.window = window
-        window.tabbingIdentifier = "PaperLiteDocument"
+        window.tabbingIdentifier = Self.tabbingID
         window.tabbingMode = .preferred
         // Reopening yesterday's tabs empty is no help, and their files may need permission again.
         window.isRestorable = false
         model.closeGuard.install(on: window, model: model)
+
+        // By the time SwiftUI hands us the window it is already on screen, so
+        // tabbingMode alone is too late. Move it into an existing window's tabs.
+        let host = NSApp.windows.first {
+            $0 !== window && $0.tabbingIdentifier == Self.tabbingID && $0.isVisible
+        }
+        if let host, !(host.tabbedWindows?.contains(window) ?? false) {
+            host.addTabbedWindow(window, ordered: .above)
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 }
 
