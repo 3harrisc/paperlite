@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" width="128" alt="PaperLite logo"></p>
+
 # PaperLite PDF
 
 A clean, fast PDF app for Windows, similar to Acrobat, focused on the features people use most:

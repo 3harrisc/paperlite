@@ -5,3 +5,7 @@ build/
 dist/
 installer/Output/
 .pytest_cache/
+macos/build/
+macos/**/xcuserdata/
+macos/**/*.xcworkspace/xcuserdata/
+.DS_Store

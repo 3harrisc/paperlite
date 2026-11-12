@@ -1,0 +1,41 @@
+name: Build macOS app
+
+on:
+  push:
+    branches: [main]
+    paths: ["macos/**", ".github/workflows/build-macos.yml"]
+  pull_request:
+    paths: ["macos/**", ".github/workflows/build-macos.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build (unsigned)
+        working-directory: macos
+        run: |
+          set -o pipefail
+          xcodebuild -project PaperLite.xcodeproj -target PaperLite -configuration Release \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build.log | grep -E "error:|warning: .*PaperLite/|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+
+      - name: Zip app
+        working-directory: macos/build/Release
+        run: ditto -c -k --keepParent PaperLite.app PaperLite-macOS-unsigned.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PaperLite-macOS-unsigned
+          path: macos/build/Release/PaperLite-macOS-unsigned.zip
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-log
+          path: macos/build.log
