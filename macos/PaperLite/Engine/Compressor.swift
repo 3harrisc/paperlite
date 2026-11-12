@@ -61,8 +61,11 @@ enum CompressionError: LocalizedError {
 /// * PDFKit's own image optimisation is also tried, and the smallest result wins.
 ///   If nothing beats the original, the original is kept.
 enum Compressor {
+    /// Read from disk every time. `URL.resourceValues` caches per URL, so when
+    /// compressing over the original it reported the old size as the new one.
     static func fileSize(_ url: URL) -> Int {
-        (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attrs?[.size] as? NSNumber)?.intValue ?? 0
     }
 
     static func compress(input: URL, output: URL, preset: CompressionPreset) throws -> CompressionResult {
