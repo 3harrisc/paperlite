@@ -194,3 +194,57 @@ def test_compress_dialog_runs(app, tmp_path):
     assert len(dlg.results) == 1
     assert os.path.exists(dialogs.compressed_name(src))
     assert "smaller" in dlg.status.text()
+
+
+def test_convert_dialog_runs(app, win, tmp_path):
+    from paperlite.ui.convert_dialog import ConvertDialog
+    from test_convert import TABLE, draw_table
+
+    d = pymupdf.open()
+    draw_table(d.new_page(), TABLE)
+    src = str(tmp_path / "Report.pdf")
+    d.save(src)
+    assert win.rail_convert.text() == "Convert"
+    for kind, ext in (("word", ".docx"), ("excel", ".xlsx")):
+        dlg = ConvertDialog(win, src, kind)
+        assert dlg.selected_kind() == kind and not dlg.open_btn.isVisible()
+        dlg.grab()
+        out = str(tmp_path / f"Report{ext}")
+        dlg._start(out)
+        dlg.worker.wait(120_000)
+        app.processEvents()
+        assert os.path.exists(out)
+        assert dlg.result and f"Saved Report{ext}" in dlg.status.text()
+        assert not dlg.open_btn.isHidden()
+    assert "1 table" in dlg.status.text()
+
+
+def test_convert_dialog_reports_errors(app, tmp_path):
+    from paperlite.ui.convert_dialog import ConvertDialog
+
+    d = pymupdf.open()
+    d.new_page()
+    src = str(tmp_path / "Blank.pdf")
+    d.save(src)
+    dlg = ConvertDialog(None, src, "excel")
+    dlg._start(str(tmp_path / "Blank.xlsx"))
+    dlg.worker.wait(60_000)
+    app.processEvents()
+    assert dlg.result is None and "Couldn" in dlg.status.text() and "nothing to put in a spreadsheet" in dlg.status.text()
+    assert dlg.open_btn.isHidden()
+
+
+def test_convert_menu_opens_dialog_on_current_pdf(app, win, form_pdf, monkeypatch):
+    from paperlite.ui import main_window
+
+    opened = []
+    monkeypatch.setattr(main_window.ConvertDialog, "exec", lambda self: opened.append((self.path, self.selected_kind())))
+    monkeypatch.setattr(main_window.QFileDialog, "getOpenFileName", lambda *a, **k: ("", ""))
+    win.convert_current("excel")  # nothing open, and the user cancels the file picker
+    assert opened == []
+    win.open_file(form_pdf)
+    win.convert_current("excel")
+    win.convert_current("word")
+    assert opened == [(form_pdf, "excel"), (form_pdf, "word")]
+    labels = [a.text() for a in win.menu_btn.menu().actions()]
+    assert "Convert to Word…" in labels and "Convert to Excel…" in labels

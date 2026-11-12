@@ -3,6 +3,7 @@
 A clean, fast PDF app for Windows, similar to Acrobat, focused on the features people use most:
 
 - **Compress PDF**: shrinks large scanned PDFs, often by 80–99%. Compress one file or a batch, or right-click a PDF in File Explorer and choose **Compress with PaperLite**.
+- **Convert to Word or Excel**: turn a PDF into an editable Word document that keeps the layout as closely as possible, or pull its tables into Excel, one sheet per table, with numbers, prices and percentages stored as real numbers. Scanned pages are read with the built-in OCR first, so they come out as text too.
 - **Fill & Sign**: fill in form fields right on the page, type text anywhere, and add ticks, crosses and today's date. Place a signature or initials, typed or hand-drawn and remembered for next time.
 - **Edit PDF**, including scans and handwriting:
   - **Edit text**: hover over a word and click to change it. On scanned pages the text is read first with built-in OCR, and the new text matches the original's size, position and ink colour on the scan's paper colour. The old pixels are really removed, not just covered.

@@ -27,8 +27,10 @@ a = Analysis(
         ("assets/icons/*.svg", "assets/icons"),
         ("assets/tessdata/eng.traineddata", "assets/tessdata"),
     ],
-    hiddenimports=["PySide6.QtPrintSupport", "PySide6.QtSvg"],
-    excludes=["tkinter", "unittest", "pydoc", "pymupdf4llm", "pymupdf_layout", *excluded_qt],
+    # Convert to Word/Excel. python-docx's blank template and OpenCV's binaries
+    # are collected by the hooks in pyinstaller-hooks-contrib.
+    hiddenimports=["PySide6.QtPrintSupport", "PySide6.QtSvg", "pdf2docx", "docx", "openpyxl"],
+    excludes=["tkinter", "unittest", "pydoc", "pymupdf4llm", "pymupdf_layout", "fire", *excluded_qt],
     noarchive=False,
 )
 
@@ -38,6 +40,7 @@ def _keep(entry):
     return not (
         dest.startswith(("pymupdf/layout", "pymupdf/mupdf-devel", "PySide6/Qt/translations", "PySide6/translations"))
         or "/qml/" in dest
+        or "opencv_videoio_ffmpeg" in dest  # OpenCV's video support; pdf2docx only reads images
     )
 
 
