@@ -22,10 +22,8 @@ struct ContentView: View {
         .navigationTitle(model.fileName.isEmpty ? "PaperLite" : model.fileName)
         .navigationSubtitle(model.isDirty ? "Edited" : model.fileSizeText)
         .dropDestination(for: URL.self) { urls, _ in
-            let pdfs = urls.filter { $0.pathExtension.lowercased() == "pdf" }
-            if pdfs.count > 1 { model.compressFiles = pdfs; model.showCombine = true; return true }
-            guard let first = pdfs.first, model.confirmDiscardChanges() else { return false }
-            model.open(first)
+            guard urls.contains(where: { $0.pathExtension.lowercased() == "pdf" }) else { return false }
+            WindowRouter.shared.open(urls, from: model)
             return true
         }
         .sheet(isPresented: $model.showCompress) { CompressSheet(files: model.compressFiles) }

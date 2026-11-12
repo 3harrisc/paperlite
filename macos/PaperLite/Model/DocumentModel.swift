@@ -108,6 +108,9 @@ final class DocumentModel: ObservableObject {
     @Published var pagesSheet: PagesAction?
 
     weak var pdfView: PaperPDFView?
+    /// This document's window (tab), and the hook that asks before closing it with unsaved changes.
+    weak var window: NSWindow?
+    let closeGuard = CloseGuard()
     private var undoStack: [Change] = []
     private var redoStack: [Change] = []
     private var ocrCache: [ObjectIdentifier: [OCRWord]] = [:]
@@ -166,12 +169,12 @@ final class DocumentModel: ObservableObject {
 
     // MARK: open / save
 
+    /// Pick one or more PDFs. They open here if this tab is empty, otherwise in new tabs.
     func openPanel() {
-        guard confirmDiscardChanges() else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.pdf]
-        panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url { open(url) }
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK { WindowRouter.shared.open(panel.urls, from: self) }
     }
 
     func open(_ url: URL) {

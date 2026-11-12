@@ -34,8 +34,8 @@ struct WelcomeView: View {
                     .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
                     .foregroundStyle(dropHover ? Theme.accent : Theme.border))
                 .dropDestination(for: URL.self) { urls, _ in
-                    guard let url = urls.first(where: { $0.pathExtension.lowercased() == "pdf" }) else { return false }
-                    model.open(url)
+                    guard urls.contains(where: { $0.pathExtension.lowercased() == "pdf" }) else { return false }
+                    WindowRouter.shared.open(urls, from: model)
                     return true
                 } isTargeted: { dropHover = $0 }
                 .padding(.top, 26)
@@ -54,7 +54,7 @@ struct WelcomeView: View {
                     VStack(spacing: 0) {
                         ForEach(model.recent, id: \.self) { url in
                             RecentRow(url: url) {
-                                if model.confirmDiscardChanges() { model.open(url) }
+                                WindowRouter.shared.open([url], from: model)
                             }
                         }
                     }

@@ -155,10 +155,10 @@ struct CompressSheet: View {
     }
 
     private func offerOpen() {
+        // Reload every tab whose file was just replaced, not only this one.
+        WindowRouter.shared.reload(results.filter { !$0.keptOriginal && $0.output == $0.input }.map(\.output))
         guard let r = results.last(where: { !$0.keptOriginal }), let current = model.url else { return }
-        if r.output == current {
-            model.open(current)
-        } else if r.input == current {
+        if r.input == current, r.output != current {
             model.notify("Saved as \(r.output.lastPathComponent)", success: true)
         }
     }
@@ -206,7 +206,7 @@ struct CombineSheet: View {
         do {
             _ = try PageOps.combine(files, into: out)
             dismiss()
-            if model.confirmDiscardChanges() { model.open(out) }
+            WindowRouter.shared.open([out], from: model)
             model.notify("Combined into \(out.lastPathComponent)", success: true)
         } catch {
             model.alert("Couldn't combine the files", error.localizedDescription)
