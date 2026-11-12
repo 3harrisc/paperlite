@@ -106,9 +106,10 @@ final class DocumentModel: ObservableObject {
     @Published var showCombine = false
     @Published var signatureSheet: SignatureKind?
     @Published var pagesSheet: PagesAction?
+    @Published var convertSheet: ConvertKind?
 
     var hasSheet: Bool {
-        showCompress || showCombine || signatureSheet != nil || pagesSheet != nil
+        showCompress || showCombine || signatureSheet != nil || pagesSheet != nil || convertSheet != nil
     }
 
     weak var pdfView: PaperPDFView?
@@ -393,6 +394,23 @@ final class DocumentModel: ObservableObject {
         showCompress = true
     }
 
+    /// Convert reads the file as saved, so unsaved edits are saved first, as for Compress.
+    func convertCurrent(_ kind: ConvertKind? = nil) {
+        if document == nil {
+            openPanel()
+            guard document != nil else { return }
+        }
+        if isDirty {
+            let a = NSAlert()
+            a.messageText = "Save your changes before converting?"
+            a.addButton(withTitle: "Save")
+            a.addButton(withTitle: "Cancel")
+            guard a.runModal() == .alertFirstButtonReturn, save() else { return }
+        }
+        let saved = ConvertKind(rawValue: UserDefaults.standard.string(forKey: "convertKind") ?? "") ?? .word
+        convertSheet = kind ?? saved
+    }
+
     // MARK: helpers
 
     func alert(_ title: String, _ text: String) {
@@ -402,10 +420,10 @@ final class DocumentModel: ObservableObject {
         a.runModal()
     }
 
-    private func askPassword() -> String? {
+    func askPassword(reason: String = "Enter the password to open it.") -> String? {
         let a = NSAlert()
         a.messageText = "This PDF is password protected"
-        a.informativeText = "Enter the password to open it."
+        a.informativeText = reason
         let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
         a.accessoryView = field
         a.addButton(withTitle: "Open")

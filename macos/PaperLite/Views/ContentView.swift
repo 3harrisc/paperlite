@@ -28,6 +28,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $model.showCompress) { CompressSheet(files: model.compressFiles) }
         .sheet(isPresented: $model.showCombine) { CombineSheet(files: model.compressFiles) }
+        .sheet(item: $model.convertSheet) { kind in ConvertSheet(kind: kind) }
         .sheet(item: $model.signatureSheet) { kind in
             SignatureSheet(kind: kind) { model.revision += 1 }
         }
@@ -83,6 +84,7 @@ struct ToolRail: View {
             }
             Divider().frame(width: 40).padding(.vertical, 6)
             RailButton(symbol: "arrow.down.right.and.arrow.up.left", title: "Compress", selected: false) { model.compressCurrent() }
+            RailButton(symbol: "arrow.left.arrow.right", title: "Convert", selected: false) { model.convertCurrent() }
             RailButton(symbol: "rectangle.stack.badge.plus", title: "Combine", selected: false) {
                 model.compressFiles = model.url.map { [$0] } ?? []
                 model.showCombine = true

@@ -52,6 +52,9 @@ private struct AppCommands: Commands {
             Divider()
             Button("Compress…") { focused?.compressCurrent() }.keyboardShortcut("c", modifiers: [.command, .shift])
             Button("Combine Files…") { focused?.compressFiles = focused?.url.map { [$0] } ?? []; focused?.showCombine = true }
+            Divider()
+            Button("Convert to Word…") { focused?.convertCurrent(.word) }.disabled(focused == nil)
+            Button("Convert to Excel…") { focused?.convertCurrent(.excel) }.disabled(focused == nil)
         }
         CommandGroup(replacing: .printItem) {
             Button("Print…") { focused?.pdfView?.print(with: NSPrintInfo.shared, autoRotate: true) }.keyboardShortcut("p").disabled(focused?.document == nil)
