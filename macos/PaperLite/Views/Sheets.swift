@@ -108,7 +108,7 @@ struct CompressSheet: View {
         Task.detached(priority: .userInitiated) {
             for (input, output) in jobs {
                 let line: String
-                var result: CompressionResult?
+                let result: CompressionResult?
                 let scoped = input.startAccessingSecurityScopedResource()
                 do {
                     let r = try Compressor.compress(input: input, output: output, preset: preset)
@@ -118,6 +118,7 @@ struct CompressSheet: View {
                         ? "• \(output.lastPathComponent): already small, left unchanged"
                         : "✓ \(output.lastPathComponent): \(f.string(fromByteCount: Int64(r.originalBytes))) → \(f.string(fromByteCount: Int64(r.compressedBytes))) (\(Int(r.savedPercent.rounded()))% smaller)"
                 } catch {
+                    result = nil
                     line = "✗ \(input.lastPathComponent): \(error.localizedDescription)"
                 }
                 if scoped { input.stopAccessingSecurityScopedResource() }
