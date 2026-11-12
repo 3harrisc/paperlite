@@ -27,6 +27,8 @@
 			</dict>
 			<key>NSMessage</key>
 			<string>compressFiles</string>
+			<key>NSPortName</key>
+			<string>PaperLite</string>
 			<key>NSRequiredContext</key>
 			<dict/>
 			<key>NSSendFileTypes</key>
