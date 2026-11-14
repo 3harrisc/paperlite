@@ -178,3 +178,15 @@ def test_version_compare():
     assert not updater.is_newer("v0.2.0", "0.2.0")
     assert not updater.is_newer("0.1.9", "0.2.0")
     assert updater.check("", "0.1.0") is None
+
+
+def test_short_tags_mean_the_same_version():
+    assert updater.same_version("v0.4", "0.4.0")
+    assert updater.same_version("v0.4.0", "0.4")
+    assert updater.same_version("v1", "1.0.0")
+    assert not updater.same_version("v0.4", "0.4.1")
+    assert not updater.same_version("v0.3", "0.4.0")
+    # no endless "update available" loop when the tag and app spell the version differently
+    assert not updater.is_newer("v0.4.0", "0.4")
+    assert not updater.is_newer("v0.4", "0.4.0")
+    assert updater.is_newer("v0.4", "0.3.0")

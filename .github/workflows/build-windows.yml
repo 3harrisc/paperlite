@@ -43,8 +43,12 @@ jobs:
         shell: bash
         run: |
           v=$(python -c 'import paperlite; print(paperlite.__version__)')
-          if [[ "$GITHUB_REF" == refs/tags/v* && "${GITHUB_REF#refs/tags/v}" != "$v" ]]; then
-            echo "::error::Tag ${GITHUB_REF#refs/tags/} doesn't match __version__ $v in paperlite/__init__.py"; exit 1
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            # v0.4, v0.4.0 and 0.4.0 all mean the same release (same rule as the in-app updater)
+            if ! python -c 'import sys; from paperlite.core.updater import same_version; sys.exit(0 if same_version(sys.argv[1], sys.argv[2]) else 1)' "$tag" "$v"; then
+              echo "::error::Tag $tag doesn't match __version__ $v in paperlite/__init__.py"; exit 1
+            fi
           fi
           echo "v=$v" >> "$GITHUB_OUTPUT"
 

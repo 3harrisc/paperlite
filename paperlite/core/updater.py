@@ -30,8 +30,14 @@ class Update:
 
 
 def parse_version(v: str) -> tuple[int, ...]:
-    nums = re.findall(r"\d+", v)
-    return tuple(int(n) for n in nums[:4]) or (0,)
+    """'v0.4' -> (0, 4, 0, 0). Missing parts count as 0, so v0.4 == 0.4.0."""
+    nums = [int(n) for n in re.findall(r"\d+", v)[:4]]
+    return tuple(nums + [0] * (4 - len(nums)))
+
+
+def same_version(a: str, b: str) -> bool:
+    """True when two version strings mean the same release, e.g. 'v0.4' and '0.4.0'."""
+    return parse_version(a) == parse_version(b)
 
 
 def is_newer(latest: str, current: str) -> bool:
