@@ -19,6 +19,7 @@ UninstallDisplayIcon={app}\{#AppExe}
 OutputDir=Output
 OutputBaseFilename=PaperLite-PDF-Setup-{#AppVersion}
 SetupIconFile=..\assets\icon.ico
+LicenseFile=..\LICENSE
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
