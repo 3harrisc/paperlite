@@ -129,6 +129,21 @@ The `core/` modules are small and map directly onto Apple frameworks:
 | Page organising | `pages.py` | `PDFDocument` `exchangePage`, `removePage`, `insert(_:at:)` |
 | Updates | GitHub Releases + Inno Setup | **Sparkle** framework (the standard auto-updater for Mac apps) |
 
-## Licensing
+## Licence
 
-PyMuPDF (the PDF engine) is **AGPL-3.0**. That's fine for personal or internal use. If you distribute PaperLite to other people, you must either publish the source under the AGPL or buy a commercial licence from Artifex. Qt for Python (PySide6) is LGPL.
+Copyright © 2026 Callum Harris.
+
+PaperLite PDF is free software, licensed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later). The full text is in [LICENSE](LICENSE). You may use, share and change it, but if you distribute it, or run a modified version as a network service, you must make your source code available under the same licence.
+
+AGPL is required because PaperLite is built on PyMuPDF, which is AGPL-licensed. To ship a closed-source version you would need a commercial PyMuPDF licence from Artifex.
+
+Third-party parts keep their own licences:
+
+| Component | Licence |
+|---|---|
+| PyMuPDF / MuPDF (PDF engine) | AGPL-3.0 |
+| Qt for Python (PySide6) | LGPL-3.0 |
+| pdf2docx (Word export) | MIT |
+| openpyxl (Excel export) | MIT |
+| Lucide icons (`assets/icons/`) | ISC, see `assets/icons/LICENSE` |
+| Tesseract English OCR data (`assets/tessdata/`) | Apache-2.0 |
